@@ -35,6 +35,8 @@ getgenv().PrioritySystem = {
     Active = true,
     AutoOpenOnLoad = true,
     GuiScale = 50,
+    MainPos = nil,
+    OpenPos = nil,
 }
 local PS = getgenv().PrioritySystem
 
@@ -110,6 +112,8 @@ local function SavePanelSettings()
                 AutoOpenOnLoad = PS.AutoOpenOnLoad,
                 GuiScale = PS.GuiScale,
                 PriorityOrder = PRIORITY_ORDER,
+                MainPos = PS.MainPos and {ScaleX = PS.MainPos.X.Scale, OffsetX = PS.MainPos.X.Offset, ScaleY = PS.MainPos.Y.Scale, OffsetY = PS.MainPos.Y.Offset} or nil,
+                OpenPos = PS.OpenPos and {ScaleX = PS.OpenPos.X.Scale, OffsetX = PS.OpenPos.X.Offset, ScaleY = PS.OpenPos.Y.Scale, OffsetY = PS.OpenPos.Y.Offset} or nil,
             }))
         end
     end)
@@ -123,6 +127,12 @@ local function LoadPanelSettings()
             if d.GuiScale ~= nil then PS.GuiScale = d.GuiScale end
             if type(d.PriorityOrder) == "table" and #d.PriorityOrder > 0 then
                 SetPriorityOrder(d.PriorityOrder)
+            end
+            if d.MainPos and d.MainPos.ScaleX and d.MainPos.OffsetX and d.MainPos.ScaleY and d.MainPos.OffsetY then
+                PS.MainPos = UDim2.new(d.MainPos.ScaleX, d.MainPos.OffsetX, d.MainPos.ScaleY, d.MainPos.OffsetY)
+            end
+            if d.OpenPos and d.OpenPos.ScaleX and d.OpenPos.OffsetX and d.OpenPos.ScaleY and d.OpenPos.OffsetY then
+                PS.OpenPos = UDim2.new(d.OpenPos.ScaleX, d.OpenPos.OffsetX, d.OpenPos.ScaleY, d.OpenPos.OffsetY)
             end
         end
     end)
@@ -142,6 +152,7 @@ local AnimalsShared = require(Shared:WaitForChild("Animals"))
 local allAnimalsCache = {}
 local lastAnimalHash = {}
 local ScreenGui, Main, ScrollFrame, SelectedLabel, EntryButtons, ConfigWindow, PriorityScroll = nil, nil, nil, nil, nil, nil, nil
+local OpenButton
 
 local function Format(n)
     if n >= 1e12 then return string.format("%.1fT", n / 1e12) end
@@ -404,11 +415,18 @@ local function scanAllPlots()
         local found = false
         for _, data in ipairs(allAnimalsCache) do
             if data.uid == PS.SelectedUID then
-                PS.SelectedData = data; PS.SelectedModel = data.model; found = true; break
+                PS.SelectedData = data
+                PS.SelectedModel = data.model
+                found = true
+                break
             end
         end
         if not found and not PS.AutoSelect then
-            PS.AutoSelect = true; PS.SelectedUID = nil; PS.SelectedData = nil; PS.SelectedModel = nil; RemoveESP()
+            PS.AutoSelect = true
+            PS.SelectedUID = nil
+            PS.SelectedData = nil
+            PS.SelectedModel = nil
+            RemoveESP()
         end
     end
 end
@@ -428,16 +446,24 @@ local function UpdateEntryVisual(entry, isSelected)
 end
 
 local function UpdateSelection(data)
-    PS.Selected = true; PS.SelectedModel = data.model; PS.SelectedUID = data.uid; PS.SelectedData = data
+    PS.Selected = true
+    PS.SelectedModel = data.model
+    PS.SelectedUID = data.uid
+    PS.SelectedData = data
 end
 
 local function ClearSelection()
-    PS.Selected = nil; PS.SelectedModel = nil; PS.SelectedUID = nil; PS.SelectedData = nil; RemoveESP()
+    PS.Selected = nil
+    PS.SelectedModel = nil
+    PS.SelectedUID = nil
+    PS.SelectedData = nil
+    RemoveESP()
 end
 
 local function SelectTarget(data, manual)
     if manual and PS.SelectedUID == data.uid then
-        ClearSelection(); PS.AutoSelect = true
+        ClearSelection()
+        PS.AutoSelect = true
         if SelectedLabel then
             SelectedLabel.Text = "Auto-selecting best..."
             SelectedLabel.TextColor3 = Color3.fromRGB(100, 200, 100)
@@ -447,7 +473,8 @@ local function SelectTarget(data, manual)
     end
     if manual then PS.AutoSelect = false end
     local model, pos = getAnimalModel(data.plot, data.slot)
-    data.model = model; if pos then data.worldPosition = pos end
+    data.model = model
+    if pos then data.worldPosition = pos end
     UpdateSelection(data)
     local autoText = PS.AutoSelect and "[AUTO] " or ""
     if SelectedLabel then
@@ -476,13 +503,20 @@ local function AutoSelectBest()
         SelectTarget(best, false)
     else
         local model, pos = getAnimalModel(best.plot, best.slot)
-        best.model = model; if pos then best.worldPosition = pos end
-        PS.SelectedModel = model; PS.SelectedData = best
+        best.model = model
+        if pos then best.worldPosition = pos end
+        PS.SelectedModel = model
+        PS.SelectedData = best
         if model and model.Parent then
-            if PS.ESPHighlight then PS.ESPHighlight.Adornee = model end
+            if PS.ESPHighlight then
+                PS.ESPHighlight.Adornee = model
+            else
+                CreateESP(model, best)
+            end
             local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
-            if root and PS.ESPBillboard then PS.ESPBillboard.Adornee = root end
-            if not PS.ESPHighlight then CreateESP(model, best) end
+            if root and PS.ESPBillboard then
+                PS.ESPBillboard.Adornee = root
+            end
         end
     end
 end
@@ -497,33 +531,50 @@ local function RefreshList()
             if data.uid == PS.SelectedUID then
                 found = true
                 local model, pos = getAnimalModel(data.plot, data.slot)
-                data.model = model; if pos then data.worldPosition = pos end
-                PS.SelectedModel = model; PS.SelectedData = data
+                data.model = model
+                if pos then data.worldPosition = pos end
+                PS.SelectedModel = model
+                PS.SelectedData = data
                 if model and model.Parent then
-                    if PS.ESPHighlight then PS.ESPHighlight.Adornee = model
-                    else CreateESP(model, data) end
+                    if PS.ESPHighlight then
+                        PS.ESPHighlight.Adornee = model
+                    else
+                        CreateESP(model, data)
+                    end
                     local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
-                    if root and PS.ESPBillboard then PS.ESPBillboard.Adornee = root end
+                    if root and PS.ESPBillboard then
+                        PS.ESPBillboard.Adornee = root
+                    end
                 end
                 break
             end
         end
-        if not found then PS.AutoSelect = true; ClearSelection(); AutoSelectBest() end
+        if not found then
+            PS.AutoSelect = true
+            ClearSelection()
+            AutoSelectBest()
+        end
     end
 
     local existingUIDs = {}
     for _, data in ipairs(allAnimalsCache) do existingUIDs[data.uid] = true end
     for i = #EntryButtons, 1, -1 do
         local entry = EntryButtons[i]
-        if not entry.Parent then table.remove(EntryButtons, i)
+        if not entry.Parent then
+            table.remove(EntryButtons, i)
         else
             local uid = entry:GetAttribute("UID")
-            if not existingUIDs[uid] then entry:Destroy(); table.remove(EntryButtons, i) end
+            if not existingUIDs[uid] then
+                entry:Destroy()
+                table.remove(EntryButtons, i)
+            end
         end
     end
 
     local existingEntries = {}
-    for _, entry in pairs(EntryButtons) do existingEntries[entry:GetAttribute("UID")] = entry end
+    for _, entry in pairs(EntryButtons) do
+        existingEntries[entry:GetAttribute("UID")] = entry
+    end
 
     local count = math.min(#allAnimalsCache, 20)
     for i = 1, count do
@@ -534,8 +585,12 @@ local function RefreshList()
             local rank = existingEntry:FindFirstChild("RankLabel")
             if rank then
                 if data.priorityRank ~= math.huge then
-                    rank.Text = "#" .. tostring(data.priorityRank); rank.TextColor3 = Color3.fromRGB(255, 150, 255)
-                else rank.Text = "#" .. i; rank.TextColor3 = Color3.fromRGB(80, 80, 90) end
+                    rank.Text = "#" .. tostring(data.priorityRank)
+                    rank.TextColor3 = Color3.fromRGB(255, 150, 255)
+                else
+                    rank.Text = "#" .. i
+                    rank.TextColor3 = Color3.fromRGB(80, 80, 90)
+                end
             end
             local nameLabel = existingEntry:FindFirstChild("NameLabel")
             if nameLabel then
@@ -543,58 +598,98 @@ local function RefreshList()
                 nameLabel.TextColor3 = data.priorityRank ~= math.huge and Color3.fromRGB(255, 150, 255) or Color3.fromRGB(210, 210, 215)
             end
             local valueLabel = existingEntry:FindFirstChild("ValueLabel")
-            if valueLabel then valueLabel.Text = "$" .. Format(data.genValue) .. "/s" end
+            if valueLabel then
+                valueLabel.Text = "$" .. Format(data.genValue) .. "/s"
+            end
             UpdateEntryVisual(existingEntry, PS.SelectedUID == data.uid)
         else
             local entry = Instance.new("Frame")
             entry.Size = UDim2.new(1, 0, 0, 44)
             entry.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-            entry.BorderSizePixel = 0; entry.LayoutOrder = i; entry.Parent = ScrollFrame
+            entry.BorderSizePixel = 0
+            entry.LayoutOrder = i
+            entry.Parent = ScrollFrame
             entry:SetAttribute("UID", data.uid)
             Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 6)
 
-            local rank = Instance.new("TextLabel"); rank.Name = "RankLabel"
-            rank.Size = UDim2.new(0, 40, 1, 0); rank.Position = UDim2.new(0, 6, 0, 0)
-            rank.BackgroundTransparency = 1; rank.Font = Enum.Font.GothamBold; rank.TextSize = 11
+            local rank = Instance.new("TextLabel")
+            rank.Name = "RankLabel"
+            rank.Size = UDim2.new(0, 40, 1, 0)
+            rank.Position = UDim2.new(0, 6, 0, 0)
+            rank.BackgroundTransparency = 1
+            rank.Font = Enum.Font.GothamBold
+            rank.TextSize = 11
             if data.priorityRank ~= math.huge then
-                rank.Text = "#" .. tostring(data.priorityRank); rank.TextColor3 = Color3.fromRGB(255, 150, 255)
-            else rank.Text = "#" .. i; rank.TextColor3 = Color3.fromRGB(80, 80, 90) end
+                rank.Text = "#" .. tostring(data.priorityRank)
+                rank.TextColor3 = Color3.fromRGB(255, 150, 255)
+            else
+                rank.Text = "#" .. i
+                rank.TextColor3 = Color3.fromRGB(80, 80, 90)
+            end
             rank.Parent = entry
 
-            local petName = Instance.new("TextLabel"); petName.Name = "NameLabel"
-            petName.Size = UDim2.new(0, 120, 0, 20); petName.Position = UDim2.new(0, 48, 0, 4)
-            petName.BackgroundTransparency = 1; petName.Text = data.name
+            local petName = Instance.new("TextLabel")
+            petName.Name = "NameLabel"
+            petName.Size = UDim2.new(0, 120, 0, 20)
+            petName.Position = UDim2.new(0, 48, 0, 4)
+            petName.BackgroundTransparency = 1
+            petName.Text = data.name
             petName.TextColor3 = data.priorityRank ~= math.huge and Color3.fromRGB(255, 150, 255) or Color3.fromRGB(210, 210, 215)
-            petName.Font = Enum.Font.GothamBold; petName.TextSize = 11
-            petName.TextXAlignment = Enum.TextXAlignment.Left; petName.TextTruncate = Enum.TextTruncate.AtEnd
+            petName.Font = Enum.Font.GothamBold
+            petName.TextSize = 11
+            petName.TextXAlignment = Enum.TextXAlignment.Left
+            petName.TextTruncate = Enum.TextTruncate.AtEnd
             petName.Parent = entry
 
-            local vLabel = Instance.new("TextLabel"); vLabel.Name = "ValueLabel"
-            vLabel.Size = UDim2.new(0, 90, 0, 16); vLabel.Position = UDim2.new(0, 48, 0, 24)
-            vLabel.BackgroundTransparency = 1; vLabel.Text = "$" .. Format(data.genValue) .. "/s"
-            vLabel.TextColor3 = Color3.fromRGB(100, 200, 100); vLabel.Font = Enum.Font.Gotham; vLabel.TextSize = 10
-            vLabel.TextXAlignment = Enum.TextXAlignment.Left; vLabel.Parent = entry
+            local vLabel = Instance.new("TextLabel")
+            vLabel.Name = "ValueLabel"
+            vLabel.Size = UDim2.new(0, 90, 0, 16)
+            vLabel.Position = UDim2.new(0, 48, 0, 24)
+            vLabel.BackgroundTransparency = 1
+            vLabel.Text = "$" .. Format(data.genValue) .. "/s"
+            vLabel.TextColor3 = Color3.fromRGB(100, 200, 100)
+            vLabel.Font = Enum.Font.Gotham
+            vLabel.TextSize = 10
+            vLabel.TextXAlignment = Enum.TextXAlignment.Left
+            vLabel.Parent = entry
 
             local ownerLabel = Instance.new("TextLabel")
-            ownerLabel.Size = UDim2.new(0, 80, 0, 16); ownerLabel.Position = UDim2.new(0, 138, 0, 24)
-            ownerLabel.BackgroundTransparency = 1; ownerLabel.Text = "by " .. data.owner
-            ownerLabel.TextColor3 = Color3.fromRGB(80, 80, 90); ownerLabel.Font = Enum.Font.Gotham; ownerLabel.TextSize = 9
-            ownerLabel.TextXAlignment = Enum.TextXAlignment.Left; ownerLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            ownerLabel.Size = UDim2.new(0, 80, 0, 16)
+            ownerLabel.Position = UDim2.new(0, 138, 0, 24)
+            ownerLabel.BackgroundTransparency = 1
+            ownerLabel.Text = "by " .. data.owner
+            ownerLabel.TextColor3 = Color3.fromRGB(80, 80, 90)
+            ownerLabel.Font = Enum.Font.Gotham
+            ownerLabel.TextSize = 9
+            ownerLabel.TextXAlignment = Enum.TextXAlignment.Left
+            ownerLabel.TextTruncate = Enum.TextTruncate.AtEnd
             ownerLabel.Parent = entry
 
-            local selectDot = Instance.new("Frame"); selectDot.Name = "SelectDot"
-            selectDot.Size = UDim2.new(0, 12, 0, 12); selectDot.Position = UDim2.new(1, -22, 0.5, -6)
-            selectDot.BackgroundColor3 = Color3.fromRGB(50, 50, 55); selectDot.BorderSizePixel = 0; selectDot.Parent = entry
+            local selectDot = Instance.new("Frame")
+            selectDot.Name = "SelectDot"
+            selectDot.Size = UDim2.new(0, 12, 0, 12)
+            selectDot.Position = UDim2.new(1, -22, 0.5, -6)
+            selectDot.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+            selectDot.BorderSizePixel = 0
+            selectDot.Parent = entry
             Instance.new("UICorner", selectDot).CornerRadius = UDim.new(1, 0)
 
             local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = ""; btn.Parent = entry
+            btn.Size = UDim2.new(1, 0, 1, 0)
+            btn.BackgroundTransparency = 1
+            btn.Text = ""
+            btn.Parent = entry
+
             local capturedUID = data.uid
             btn.MouseButton1Click:Connect(function()
                 for _, d in ipairs(allAnimalsCache) do
-                    if d.uid == capturedUID then SelectTarget(d, true); break end
+                    if d.uid == capturedUID then
+                        SelectTarget(d, true)
+                        break
+                    end
                 end
             end)
+
             btn.MouseEnter:Connect(function()
                 if PS.SelectedUID ~= entry:GetAttribute("UID") then
                     TweenService:Create(entry, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(28, 28, 32)}):Play()
@@ -605,11 +700,14 @@ local function RefreshList()
                     TweenService:Create(entry, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(20, 20, 24)}):Play()
                 end
             end)
+
             table.insert(EntryButtons, entry)
             if PS.SelectedUID == data.uid then UpdateEntryVisual(entry, true) end
         end
     end
-    if ScrollFrame then ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, count * 50) end
+    if ScrollFrame then
+        ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, count * 50)
+    end
 end
 
 local parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -627,7 +725,7 @@ GlobalUIScale.Parent = ScreenGui
 Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.Size = UDim2.new(0, 280, 0, 440)
-Main.Position = UDim2.new(1, -570, 0, 50)
+Main.Position = PS.MainPos or UDim2.new(1, -570, 0, 50)
 Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
@@ -636,10 +734,10 @@ local mainStroke = Instance.new("UIStroke", Main)
 mainStroke.Color = Color3.fromRGB(60, 60, 60)
 mainStroke.Thickness = 1
 
-local OpenButton = Instance.new("TextButton")
+OpenButton = Instance.new("TextButton")
 OpenButton.Name = "OpenButton"
 OpenButton.Size = UDim2.new(0, 150, 0, 32)
-OpenButton.Position = UDim2.new(1, -570, 0, 50)
+OpenButton.Position = PS.OpenPos or UDim2.new(1, -570, 0, 50)
 OpenButton.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 OpenButton.BorderSizePixel = 0
 OpenButton.Text = "Open Priority List"
@@ -650,9 +748,9 @@ OpenButton.AutoButtonColor = false
 OpenButton.Visible = false
 OpenButton.Parent = ScreenGui
 Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(0, 8)
-local openStroke = Instance.new("UIStroke", OpenButton)
-openStroke.Color = Color3.fromRGB(60, 60, 60)
-openStroke.Thickness = 1
+local openStroke2 = Instance.new("UIStroke", OpenButton)
+openStroke2.Color = Color3.fromRGB(60, 60, 60)
+openStroke2.Thickness = 1
 
 OpenButton.MouseEnter:Connect(function()
     TweenService:Create(OpenButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(25, 25, 25)}):Play()
@@ -683,6 +781,8 @@ UserInputService.InputChanged:Connect(function(input)
         local delta = input.Position - openDragStart
         if delta.Magnitude > 5 then
             OpenButton.Position = UDim2.new(openStartPos.X.Scale, openStartPos.X.Offset + delta.X, openStartPos.Y.Scale, openStartPos.Y.Offset + delta.Y)
+            PS.OpenPos = OpenButton.Position
+            SavePanelSettings()
         end
     end
 end)
@@ -865,7 +965,9 @@ local function setGuiScaleFromAlpha(a, instant)
     a = math.clamp(a, 0, 1)
     local value = math.floor(20 + (100 - 20) * a + 0.5)
     PS.GuiScale = value
-    if not GuiScaleInput:IsFocused() then GuiScaleInput.Text = tostring(value) .. "%" end
+    if not GuiScaleInput:IsFocused() then
+        GuiScaleInput.Text = tostring(value) .. "%"
+    end
     local sizeX = GuiScaleBar.AbsoluteSize.X
     if sizeX <= 0 then return end
     local x = a * sizeX
@@ -958,6 +1060,8 @@ UserInputService.InputChanged:Connect(function(input)
     if draggingMain and not isInteractingWithSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - dragStartMain
         Main.Position = UDim2.new(startPosMain.X.Scale, startPosMain.X.Offset + delta.X, startPosMain.Y.Scale, startPosMain.Y.Offset + delta.Y)
+        PS.MainPos = Main.Position
+        SavePanelSettings()
     end
 end)
 UserInputService.InputEnded:Connect(function(i)
@@ -1218,7 +1322,10 @@ end
 function PS.GetSelectedModel()
     if PS.SelectedData then
         local model = getAnimalModel(PS.SelectedData.plot, PS.SelectedData.slot)
-        if model then PS.SelectedModel = model; PS.SelectedData.model = model end
+        if model then
+            PS.SelectedModel = model
+            PS.SelectedData.model = model
+        end
     end
     return PS.SelectedModel
 end
@@ -1226,7 +1333,10 @@ end
 function PS.GetWorldPosition()
     if PS.SelectedData then
         local _, pos = getAnimalModel(PS.SelectedData.plot, PS.SelectedData.slot)
-        if pos then PS.SelectedData.worldPosition = pos; return pos end
+        if pos then
+            PS.SelectedData.worldPosition = pos
+            return pos
+        end
         if PS.SelectedData.worldPosition then return PS.SelectedData.worldPosition end
     end
     return nil
