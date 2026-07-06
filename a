@@ -1,7 +1,5 @@
 if not game:IsLoaded() then game.Loaded:Wait() end
 
-local MIN_GEN_VALUE = 1
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -37,6 +35,7 @@ getgenv().PrioritySystem = {
     GuiScale = 50,
     MainPos = nil,
     OpenPos = nil,
+    MinGenValue = 0
 }
 local PS = getgenv().PrioritySystem
 
@@ -105,12 +104,26 @@ end
 
 SetPriorityOrder(DEFAULT_PRIORITY_ORDER)
 
+local function ParseFormattedNumber(str)
+    str = str:upper():gsub("%s+", "")
+    local multipliers = {K = 1e3, M = 1e6, B = 1e9, T = 1e12}
+    local base, suffix = str:match("^([%d%.]+)([KMBT])$")
+    if base and suffix then
+        local num = tonumber(base)
+        if num then
+            return num * multipliers[suffix]
+        end
+    end
+    return tonumber(str) or 0
+end
+
 local function SavePanelSettings()
     pcall(function()
         if writefile then
             writefile(SAVE_KEY_PRIO .. ".json", HttpService:JSONEncode({
                 AutoOpenOnLoad = PS.AutoOpenOnLoad,
                 GuiScale = PS.GuiScale,
+                MinGenValue = PS.MinGenValue,
                 PriorityOrder = PRIORITY_ORDER,
                 MainPos = PS.MainPos and {ScaleX = PS.MainPos.X.Scale, OffsetX = PS.MainPos.X.Offset, ScaleY = PS.MainPos.Y.Scale, OffsetY = PS.MainPos.Y.Offset} or nil,
                 OpenPos = PS.OpenPos and {ScaleX = PS.OpenPos.X.Scale, OffsetX = PS.OpenPos.X.Offset, ScaleY = PS.OpenPos.Y.Scale, OffsetY = PS.OpenPos.Y.Offset} or nil,
@@ -125,6 +138,7 @@ local function LoadPanelSettings()
             local d = HttpService:JSONDecode(readfile(SAVE_KEY_PRIO .. ".json"))
             if d.AutoOpenOnLoad ~= nil then PS.AutoOpenOnLoad = d.AutoOpenOnLoad end
             if d.GuiScale ~= nil then PS.GuiScale = d.GuiScale end
+            if d.MinGenValue ~= nil then PS.MinGenValue = d.MinGenValue end
             if type(d.PriorityOrder) == "table" and #d.PriorityOrder > 0 then
                 SetPriorityOrder(d.PriorityOrder)
             end
@@ -391,7 +405,7 @@ local function scanAllPlots()
                     local displayName = animalInfo.DisplayName or animalName
                     local mutation = animalData.Mutation or "None"
                     local genValue = AnimalsShared:GetGeneration(animalName, animalData.Mutation, animalData.Traits, nil)
-                    if genValue < MIN_GEN_VALUE then continue end
+                    if genValue < PS.MinGenValue then continue end
                     local model, worldPos = getAnimalModel(plot.Name, slot)
                     if not worldPos then worldPos = getWorldPosition(plot.Name, slot) end
                     local rank = PRIORITY_RANK[displayName] or PRIORITY_RANK[animalName]
@@ -1184,7 +1198,7 @@ local function ShowConfigWindow()
     end
     ConfigWindow = Instance.new("Frame")
     ConfigWindow.Name = "PriorityConfig"
-    ConfigWindow.Size = UDim2.new(0, 340, 0, 420)
+    ConfigWindow.Size = UDim2.new(0, 340, 0, 480)
     ConfigWindow.AnchorPoint = Vector2.new(0.5, 0.5)
     ConfigWindow.Position = UDim2.new(0.5, 0, 0.5, 0)
     ConfigWindow.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
@@ -1255,7 +1269,7 @@ local function ShowConfigWindow()
     Instance.new("UICorner", AddBtn).CornerRadius = UDim.new(0, 5)
 
     PriorityScroll = Instance.new("ScrollingFrame", ConfigWindow)
-    PriorityScroll.Size = UDim2.new(0.9, 0, 0, 320)
+    PriorityScroll.Size = UDim2.new(0.9, 0, 0, 280)
     PriorityScroll.Position = UDim2.new(0.05, 0, 0, 96)
     PriorityScroll.BackgroundTransparency = 1
     PriorityScroll.BorderSizePixel = 0
@@ -1264,6 +1278,48 @@ local function ShowConfigWindow()
     local prLayout = Instance.new("UIListLayout", PriorityScroll)
     prLayout.SortOrder = Enum.SortOrder.LayoutOrder
     prLayout.Padding = UDim.new(0, 6)
+
+    local MinValFrame = Instance.new("Frame", ConfigWindow)
+    MinValFrame.Size = UDim2.new(0.9, 0, 0, 40)
+    MinValFrame.Position = UDim2.new(0.05, 0, 1, -54)
+    MinValFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    MinValFrame.BorderSizePixel = 0
+    Instance.new("UICorner", MinValFrame).CornerRadius = UDim.new(0, 6)
+
+    local MinValLabel = Instance.new("TextLabel", MinValFrame)
+    MinValLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    MinValLabel.Position = UDim2.new(0, 10, 0, 0)
+    MinValLabel.BackgroundTransparency = 1
+    MinValLabel.Text = "Min. Income ($/s)"
+    MinValLabel.Font = Enum.Font.GothamBold
+    MinValLabel.TextSize = 12
+    MinValLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+    MinValLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local MinValBG = Instance.new("Frame", MinValFrame)
+    MinValBG.Size = UDim2.new(0, 100, 0, 24)
+    MinValBG.Position = UDim2.new(1, -110, 0.5, -12)
+    MinValBG.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    MinValBG.BorderSizePixel = 0
+    Instance.new("UICorner", MinValBG).CornerRadius = UDim.new(0, 5)
+
+    local MinValInput = Instance.new("TextBox", MinValBG)
+    MinValInput.Size = UDim2.new(1, 0, 1, 0)
+    MinValInput.BackgroundTransparency = 1
+    MinValInput.Text = Format(PS.MinGenValue)
+    MinValInput.Font = Enum.Font.GothamBold
+    MinValInput.TextSize = 11
+    MinValInput.TextColor3 = Color3.fromRGB(100, 255, 100)
+    MinValInput.TextXAlignment = Enum.TextXAlignment.Center
+    MinValInput.ClearTextOnFocus = false
+
+    MinValInput.FocusLost:Connect(function()
+        local cleanVal = ParseFormattedNumber(MinValInput.Text)
+        PS.MinGenValue = math.max(0, cleanVal)
+        MinValInput.Text = Format(PS.MinGenValue)
+        SavePanelSettings()
+        RefreshList()
+    end)
 
     local cfgDragging, cfgDragStart, cfgStartPos = false, nil, nil
     TopBar.InputBegan:Connect(function(i)
