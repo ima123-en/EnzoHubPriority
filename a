@@ -1,3 +1,7 @@
+-- =============================================================================
+-- ENZO'S PRIORITY PANEL (WITH INITIAL SCAN BUFFER TO PREVENT JITTER)
+-- =============================================================================
+
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -10,6 +14,9 @@ local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 local SAVE_KEY_PRIO = "PriorityPanel_Settings_" .. LocalPlayer.UserId
+
+-- Zeitstempel für den Netzwerk-Buffer beim Server-Beitritt
+local startupTime = tick()
 
 pcall(function()
     if LocalPlayer.PlayerGui:FindFirstChild("PriorityPanel") then
@@ -282,6 +289,7 @@ local function CreateESP(model, data)
     highlight.OutlineTransparency = 0
     if data.priorityRank ~= math.huge then
         highlight.FillColor = Color3.fromRGB(255, 100, 255)
+        highlight.Adornee = model
         highlight.OutlineColor = Color3.fromRGB(255, 150, 255)
     else
         highlight.FillColor = Color3.fromRGB(255, 200, 50)
@@ -537,6 +545,18 @@ end
 
 local function RefreshList()
     scanAllPlots()
+    
+    -- =============================================================================
+    -- INITIAL SCAN BUFFER (VERHINDERT DAS VERSEHENTLICHE LOCKEN BEIM SPRACH-LADEN)
+    -- =============================================================================
+    if tick() - startupTime < 0.35 then
+        if SelectedLabel then
+            SelectedLabel.Text = "Scanning server plots..."
+            SelectedLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
+        end
+        return
+    end
+
     if PS.AutoSelect then
         AutoSelectBest()
     elseif PS.SelectedUID then
@@ -1252,7 +1272,7 @@ local function ShowConfigWindow()
     AddBox.TextSize = 12
     AddBox.Text = ""
     AddBox.TextColor3 = Color3.fromRGB(230, 230, 230)
-    AddBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+    AddBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
     AddBox.TextXAlignment = Enum.TextXAlignment.Left
     AddBox.ClearTextOnFocus = false
 
