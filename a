@@ -878,7 +878,7 @@ SelectedLabel = Instance.new("TextLabel")
 SelectedLabel.Size = UDim2.new(1, -10, 1, 0)
 SelectedLabel.Position = UDim2.new(0, 10, 0, 0)
 SelectedLabel.BackgroundTransparency = 1
-SelectedLabel.Text = "Securing database stream..."
+SelectedLabel.Text = "Scanning brainrots..."
 SelectedLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
 SelectedLabel.Font = Enum.Font.Gotham
 SelectedLabel.TextSize = 11
@@ -1419,25 +1419,25 @@ function PS.GetOwner()
 end
 
 -- =============================================================================
--- SYSTEMSTABILISIERUNG AUF STARTUP (HÄLT FEHL-SELEKTIONEN AUF 0%)
+-- HOCHFREQUENZ-STABILISIERUNG AUF STARTUP (0.7 SEKUNDEN BLITZ-SCAN)
 -- =============================================================================
 task.spawn(function()
     local elapsed = 0
-    local stabilizationTime = 5.0 -- 5 Sekunden absolut sicherer Scan ohne Target-Aktivierung
+    local stabilizationTime = 0.7 -- Blitzschneller 0.7 Sekunden Scan vor der Aktivierung
     
     while elapsed < stabilizationTime do
-        task.wait(0.2)
-        elapsed = elapsed + 0.2
-        pcall(scanAllPlots) -- Befüllt im Hintergrund unbemerkt den Cache
+        task.wait(0.1) -- Scannt alle 100ms im Hintergrund extrem schnell
+        elapsed = elapsed + 0.1
+        pcall(scanAllPlots)
         
         if SelectedLabel then
             local percent = math.floor((elapsed / stabilizationTime) * 100)
-            SelectedLabel.Text = string.format("Securing database stream... %d%%", percent)
+            SelectedLabel.Text = string.format("Database loading... %d%%", percent)
             SelectedLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
         end
     end
     
-    -- Nach 5 Sekunden schalten wir das System scharf
+    -- Nach exakt 0.7 Sekunden schalten wir das System scharf
     systemReady = true
     pcall(scanAllPlots)
     pcall(AutoSelectBest)
@@ -1451,7 +1451,7 @@ task.spawn(function()
         if systemReady then
             pcall(RefreshList)
         else
-            pcall(scanAllPlots) -- Scannt nur stumm im Hintergrund
+            pcall(scanAllPlots) -- Stummer Hintergrund-Scan vor den 0.7 Sekunden
         end
     end
 end)
