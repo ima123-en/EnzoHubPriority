@@ -1,5 +1,5 @@
 if not game:IsLoaded() then game.Loaded:Wait() end
-task.wait(0.8) -- Warte zusätzliche 0.8 Sekunden, damit alle Instanzen stabil geladen sind
+task.wait(2.5) -- Warte zusätzliche Zeit, damit alle Instanzen stabil geladen sind
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -41,6 +41,7 @@ getgenv().PrioritySystem = {
 local PS = getgenv().PrioritySystem
 
 local isInteractingWithSlider = false
+local systemReady = false -- Sicherheits-Flag gegen unfertiges Scannen beim Joinen
 
 local DEFAULT_PRIORITY_ORDER = {
     "Headless Horseman",
@@ -426,7 +427,7 @@ local function scanAllPlots()
         return a.genValue > b.genValue
     end)
     allAnimalsCache = newCache
-    if PS.SelectedUID then
+    if PS.SelectedUID and systemReady then
         local found = false
         for _, data in ipairs(allAnimalsCache) do
             if data.uid == PS.SelectedUID then
@@ -476,6 +477,7 @@ local function ClearSelection()
 end
 
 local function SelectTarget(data, manual)
+    if not systemReady then return end
     if manual and PS.SelectedUID == data.uid then
         ClearSelection()
         PS.AutoSelect = true
@@ -504,6 +506,7 @@ local function SelectTarget(data, manual)
 end
 
 local function AutoSelectBest()
+    if not systemReady then return end
     if not PS.AutoSelect then return end
     if #allAnimalsCache == 0 then
         ClearSelection()
@@ -537,6 +540,7 @@ local function AutoSelectBest()
 end
 
 local function RefreshList()
+    if not systemReady then return end
     scanAllPlots()
     if PS.AutoSelect then
         AutoSelectBest()
@@ -874,8 +878,8 @@ SelectedLabel = Instance.new("TextLabel")
 SelectedLabel.Size = UDim2.new(1, -10, 1, 0)
 SelectedLabel.Position = UDim2.new(0, 10, 0, 0)
 SelectedLabel.BackgroundTransparency = 1
-SelectedLabel.Text = "Auto-selecting best..."
-SelectedLabel.TextColor3 = Color3.fromRGB(100, 200, 100)
+SelectedLabel.Text = "Securing database stream..."
+SelectedLabel.TextColor3 = Color3.fromRGB(255, 180, 50)
 SelectedLabel.Font = Enum.Font.Gotham
 SelectedLabel.TextSize = 11
 SelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1414,11 +1418,40 @@ function PS.GetOwner()
     return nil
 end
 
-RefreshList()
+-- =============================================================================
+-- SYSTEMSTABILISIERUNG AUF STARTUP (HÄLT FEHL-SELEKTIONEN AUF 0%)
+-- =============================================================================
+task.spawn(function()
+    local elapsed = 0
+    local stabilizationTime = 5.0 -- 5 Sekunden absolut sicherer Scan ohne Target-Aktivierung
+    
+    while elapsed < stabilizationTime do
+        task.wait(0.2)
+        elapsed = elapsed + 0.2
+        pcall(scanAllPlots) -- Befüllt im Hintergrund unbemerkt den Cache
+        
+        if SelectedLabel then
+            local percent = math.floor((elapsed / stabilizationTime) * 100)
+            SelectedLabel.Text = string.format("Securing database stream... %d%%", percent)
+            SelectedLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
+        end
+    end
+    
+    -- Nach 5 Sekunden schalten wir das System scharf
+    systemReady = true
+    pcall(scanAllPlots)
+    pcall(AutoSelectBest)
+    pcall(RefreshList)
+end)
 
+-- Main loop
 task.spawn(function()
     while PS.Active and ScreenGui and ScreenGui.Parent do
         task.wait(0.2)
-        pcall(RefreshList)
+        if systemReady then
+            pcall(RefreshList)
+        else
+            pcall(scanAllPlots) -- Scannt nur stumm im Hintergrund
+        end
     end
 end)
