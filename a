@@ -1423,7 +1423,7 @@ end
 -- =============================================================================
 task.spawn(function()
     local elapsed = 0
-    local stabilizationTime = 0.45 -- Blitzschneller 0.7 Sekunden Scan vor der Aktivierung
+    local stabilizationTime = 0.15 -- Blitzschneller 0.7 Sekunden Scan vor der Aktivierung
     
     while elapsed < stabilizationTime do
         task.wait(0.1) -- Scannt alle 100ms im Hintergrund extrem schnell
