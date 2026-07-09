@@ -1,5 +1,5 @@
 if not game:IsLoaded() then game.Loaded:Wait() end
-task.wait(2.5) -- Warte zusätzliche Zeit, damit alle Instanzen stabil geladen sind
+task.wait(0.8) -- Warte zusätzliche Zeit, damit alle Instanzen stabil geladen sind
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
